@@ -1,1 +1,1 @@
-# aws-cognito-restore-labmda
+# aws-cognito-restore-lambda
