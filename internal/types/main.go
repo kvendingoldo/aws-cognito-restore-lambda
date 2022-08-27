@@ -5,12 +5,10 @@ import (
 )
 
 type Response struct {
-	Message string `json:"Answer:"`
+	Message string `json:"answer"`
 }
 
 type Event struct {
-	ID string `json:"id"`
-
 	AWSRegion string `json:"awsRegion"`
 
 	CognitoUserPoolId string `json:"cognitoUserPoolID"`

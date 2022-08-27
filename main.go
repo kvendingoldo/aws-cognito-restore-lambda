@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	awsLambda "github.com/aws/aws-lambda-go/lambda"
 	cfg "github.com/kvendingoldo/aws-cognito-restore-lambda/internal/config"
 	"github.com/kvendingoldo/aws-cognito-restore-lambda/internal/lambda"
@@ -50,8 +49,16 @@ func init() {
 func Handler(ctx context.Context, event types.Event) (types.Response, error) {
 	log.Infof("Handling lambda for event: %v", event)
 	config := cfg.New(event)
-	lambda.Execute(*config)
-	return types.Response{Message: fmt.Sprintf("Lambda has been completed for %v\n", event.ID)}, nil
+
+	var msg string
+	err := lambda.Execute(ctx, *config)
+	if err != nil {
+		msg = "Lambda has been failed"
+	} else {
+		msg = "Lambda has been completed successfully"
+	}
+
+	return types.Response{Message: msg}, err
 }
 
 func main() {
@@ -64,7 +71,14 @@ func main() {
 
 		if mode == "local" {
 			config := cfg.New(nil)
-			lambda.Execute(*config)
+			err := lambda.Execute(context.TODO(), *config)
+
+			if err != nil {
+				log.Errorf("Lambda has been failed. Error: %s", err)
+				os.Exit(1)
+			} else {
+				log.Info("Lambda has been completed")
+			}
 		} else if mode == "cloud" {
 			awsLambda.Start(Handler)
 		}
@@ -72,5 +86,4 @@ func main() {
 		log.Errorf("Environment variable 'MODE' is unspecified. Please, specify it. Value should be 'local' or 'cloud'")
 		os.Exit(1)
 	}
-	log.Info("Lambda has completed")
 }

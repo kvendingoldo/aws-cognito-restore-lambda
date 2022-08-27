@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -12,7 +13,7 @@ import (
 	"github.com/kvendingoldo/aws-cognito-restore-lambda/internal/config"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"os"
+	"time"
 )
 
 func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyName string) ([]byte, error) {
@@ -35,22 +36,18 @@ func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyNam
 	return data, err
 }
 
-func Execute(config config.Config) {
+func Execute(ctx context.Context, config config.Config) error {
 	client, err := cloud.New(context.TODO(), config.CognitoRegion, config.S3BucketRegion)
 	if err != nil {
-		log.Errorf("Could not create AWS client. Error: %s", err)
-		os.Exit(1)
+		return errors.New(fmt.Sprintf("Could not create AWS client. Error: %s", err))
 	}
-
-	ctx := context.TODO()
 
 	if config.CleanUpBeforeRestore.Bool {
 		users, err := client.CognitoClient.ListUsers(ctx, &cognitoidentityprovider.ListUsersInput{
 			UserPoolId: aws.String(config.CognitoUserPoolId),
 		})
 		if err != nil {
-			log.Errorf("[cleanup] Failed to get list of cognito users. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("[cleanup] Failed to get list of cognito users. Error: %s", err))
 		}
 
 		for _, user := range users.Users {
@@ -62,6 +59,8 @@ func Execute(config config.Config) {
 			)
 			if err != nil {
 				log.Errorf("[cleanup] Failed to user %s. Error: %s", *user.Username, err)
+			} else {
+				log.Debugf("User %s has been successefully deleted from %s userpool", *user.Username, config.CognitoUserPoolId)
 			}
 		}
 
@@ -69,8 +68,7 @@ func Execute(config config.Config) {
 			UserPoolId: aws.String(config.CognitoUserPoolId),
 		})
 		if err != nil {
-			log.Errorf("[cleanup] Failed to get list of cognito groups. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("[cleanup] Failed to get list of cognito groups. Error: %s", err))
 		}
 
 		for _, group := range groups.Groups {
@@ -80,24 +78,32 @@ func Execute(config config.Config) {
 					GroupName:  group.GroupName,
 				},
 			)
+
 			if err != nil {
 				log.Errorf("[cleanup] Failed to delete group %s. Error: %s", *group.GroupName, err)
+			} else {
+				log.Debugf("Group %s has been successefully deleted from %s userpool", *group.GroupName, config.CognitoUserPoolId)
 			}
 		}
+
+		time.Sleep(3 * time.Second)
+		log.Infof("User pool %s has been successfully cleaned up", config.CognitoUserPoolId)
 	}
 
 	if config.RestoreUsers.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/users.json", config.BackupDirPath))
 		if err != nil {
-			log.Errorf("Failed to get users backup data from S3. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("Failed to get users backup data from S3. Error: %s", err))
+		} else {
+			log.Debugf("%s/users.json data has been recieved successfully from S3", config.BackupDirPath)
 		}
 
 		var users cognitoidentityprovider.ListUsersOutput
 		err = json.Unmarshal(data, &users)
 		if err != nil {
-			log.Errorf("Failed to unmarshal users backup data. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("Failed to unmarshal users backup data. Error: %s", err))
+		} else {
+			log.Debug("users data has been unmarshalled successfully")
 		}
 
 		for _, user := range users.Users {
@@ -124,8 +130,7 @@ func Execute(config config.Config) {
 				},
 			)
 			if err != nil {
-				log.Errorf("Failed to restore user %s. Error: %s", *user.Username, err)
-				os.Exit(1)
+				return errors.New(fmt.Sprintf("Failed to restore user %s. Error: %s", *user.Username, err))
 			}
 		}
 	}
@@ -133,15 +138,18 @@ func Execute(config config.Config) {
 	if config.RestoreGroups.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/groups.json", config.BackupDirPath))
 		if err != nil {
-			log.Errorf("Failed to get groups backup data from S3. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("Failed to get groups backup data from S3. Error: %s", err))
+		} else {
+			log.Debugf("%s/groups.json data has been recieved successfully from S3", config.BackupDirPath)
 		}
 
 		var groups cognitoidentityprovider.ListGroupsOutput
 		err = json.Unmarshal(data, &groups)
 		if err != nil {
-			log.Errorf("Failed to unmarshal groups backup data. Error: %s", err)
-			os.Exit(1)
+			return errors.New(fmt.Sprintf("Failed to unmarshal groups backup data. Error: %s", err))
+
+		} else {
+			log.Debug("groups data has been unmarshalled successfully")
 		}
 
 		for _, group := range groups.Groups {
@@ -152,10 +160,10 @@ func Execute(config config.Config) {
 				},
 			)
 			if err != nil {
-				log.Errorf("Failed to restore group %s. Error: %s", *group.GroupName, err)
-				os.Exit(1)
+				return errors.New(fmt.Sprintf("Failed to restore group %s. Error: %s", *group.GroupName, err))
 			}
 		}
 	}
 
+	return nil
 }
