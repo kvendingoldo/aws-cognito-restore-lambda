@@ -3,7 +3,6 @@ package lambda
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -39,7 +38,7 @@ func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyNam
 func Execute(ctx context.Context, config config.Config) error {
 	client, err := cloud.New(context.TODO(), config.CognitoRegion, config.S3BucketRegion)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Could not create AWS client. Error: %s", err))
+		return fmt.Errorf("Could not create AWS client. Error: %s", err)
 	}
 
 	if config.CleanUpBeforeRestore.Bool {
@@ -47,7 +46,7 @@ func Execute(ctx context.Context, config config.Config) error {
 			UserPoolId: aws.String(config.CognitoUserPoolId),
 		})
 		if err != nil {
-			return errors.New(fmt.Sprintf("[cleanup] Failed to get list of cognito users. Error: %s", err))
+			return fmt.Errorf("[cleanup] Failed to get list of cognito users. Error: %s", err)
 		}
 
 		for _, user := range users.Users {
@@ -68,7 +67,7 @@ func Execute(ctx context.Context, config config.Config) error {
 			UserPoolId: aws.String(config.CognitoUserPoolId),
 		})
 		if err != nil {
-			return errors.New(fmt.Sprintf("[cleanup] Failed to get list of cognito groups. Error: %s", err))
+			return fmt.Errorf("[cleanup] Failed to get list of cognito groups. Error: %s", err)
 		}
 
 		for _, group := range groups.Groups {
@@ -93,15 +92,15 @@ func Execute(ctx context.Context, config config.Config) error {
 	if config.RestoreUsers.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/users.json", config.BackupDirPath))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to get users backup data from S3. Error: %s", err))
+			return fmt.Errorf("Failed to get users backup data from S3. Error: %s", err)
 		} else {
-			log.Debugf("%s/users.json data has been recieved successfully from S3", config.BackupDirPath)
+			log.Debugf("%s/users.json data has been received successfully from S3", config.BackupDirPath)
 		}
 
 		var users cognitoidentityprovider.ListUsersOutput
 		err = json.Unmarshal(data, &users)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to unmarshal users backup data. Error: %s", err))
+			return fmt.Errorf("Failed to unmarshal users backup data. Error: %s", err)
 		} else {
 			log.Debug("users data has been unmarshalled successfully")
 		}
@@ -130,7 +129,7 @@ func Execute(ctx context.Context, config config.Config) error {
 				},
 			)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to restore user %s. Error: %s", *user.Username, err))
+				return fmt.Errorf("Failed to restore user %s. Error: %s", *user.Username, err)
 			}
 		}
 	}
@@ -138,15 +137,15 @@ func Execute(ctx context.Context, config config.Config) error {
 	if config.RestoreGroups.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/groups.json", config.BackupDirPath))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to get groups backup data from S3. Error: %s", err))
+			return fmt.Errorf("Failed to get groups backup data from S3. Error: %s", err)
 		} else {
-			log.Debugf("%s/groups.json data has been recieved successfully from S3", config.BackupDirPath)
+			log.Debugf("%s/groups.json data has been received successfully from S3", config.BackupDirPath)
 		}
 
 		var groups cognitoidentityprovider.ListGroupsOutput
 		err = json.Unmarshal(data, &groups)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to unmarshal groups backup data. Error: %s", err))
+			return fmt.Errorf("Failed to unmarshal groups backup data. Error: %s", err)
 
 		} else {
 			log.Debug("groups data has been unmarshalled successfully")
@@ -160,7 +159,7 @@ func Execute(ctx context.Context, config config.Config) error {
 				},
 			)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to restore group %s. Error: %s", *group.GroupName, err))
+				return fmt.Errorf("Failed to restore group %s. Error: %s", *group.GroupName, err)
 			}
 		}
 	}
