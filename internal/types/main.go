@@ -11,7 +11,7 @@ type Response struct {
 type Event struct {
 	AWSRegion string `json:"awsRegion"`
 
-	CognitoUserPoolId string `json:"cognitoUserPoolID"`
+	CognitoUserPoolID string `json:"cognitoUserPoolId"`
 	CognitoRegion     string `json:"cognitoRegion"`
 
 	S3BucketName   string `json:"s3BucketName"`

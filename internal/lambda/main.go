@@ -23,12 +23,14 @@ func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyNam
 
 	if err != nil {
 		log.Errorf("Failed to get %s object data from %s bucket", keyName, bucketName)
+
 		return nil, err
 	}
 
 	data, err := io.ReadAll(obj.Body)
 	if err != nil {
 		log.Errorf("Failed to convert %s object data to bytes", keyName)
+
 		return nil, err
 	}
 
@@ -38,42 +40,43 @@ func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyNam
 func Execute(ctx context.Context, config config.Config) error {
 	client, err := cloud.New(ctx, config.CognitoRegion, config.S3BucketRegion)
 	if err != nil {
-		return fmt.Errorf("Could not create AWS client. Error: %s", err)
+		//nolint:stylecheck
+		return fmt.Errorf("Could not create AWS client. Error: %w", err)
 	}
 
 	if config.CleanUpBeforeRestore.Bool {
 		users, err := client.CognitoClient.ListUsers(ctx, &cognitoidentityprovider.ListUsersInput{
-			UserPoolId: aws.String(config.CognitoUserPoolId),
+			UserPoolId: aws.String(config.CognitoUserPoolID),
 		})
 		if err != nil {
-			return fmt.Errorf("[cleanup] Failed to get list of cognito users. Error: %s", err)
+			return fmt.Errorf("[cleanup] Failed to get list of cognito users. Error: %w", err)
 		}
 
 		for _, user := range users.Users {
 			_, err := client.CognitoClient.AdminDeleteUser(
 				ctx, &cognitoidentityprovider.AdminDeleteUserInput{
-					UserPoolId: aws.String(config.CognitoUserPoolId),
+					UserPoolId: aws.String(config.CognitoUserPoolID),
 					Username:   user.Username,
 				},
 			)
 			if err != nil {
 				log.Errorf("[cleanup] Failed to user %s. Error: %s", *user.Username, err)
 			} else {
-				log.Debugf("User %s has been successefully deleted from %s userpool", *user.Username, config.CognitoUserPoolId)
+				log.Debugf("User %s has been successefully deleted from %s userpool", *user.Username, config.CognitoUserPoolID)
 			}
 		}
 
 		groups, err := client.CognitoClient.ListGroups(ctx, &cognitoidentityprovider.ListGroupsInput{
-			UserPoolId: aws.String(config.CognitoUserPoolId),
+			UserPoolId: aws.String(config.CognitoUserPoolID),
 		})
 		if err != nil {
-			return fmt.Errorf("[cleanup] Failed to get list of cognito groups. Error: %s", err)
+			return fmt.Errorf("[cleanup] Failed to get list of cognito groups. Error: %w", err)
 		}
 
 		for _, group := range groups.Groups {
 			_, err := client.CognitoClient.DeleteGroup(
 				ctx, &cognitoidentityprovider.DeleteGroupInput{
-					UserPoolId: aws.String(config.CognitoUserPoolId),
+					UserPoolId: aws.String(config.CognitoUserPoolID),
 					GroupName:  group.GroupName,
 				},
 			)
@@ -81,27 +84,29 @@ func Execute(ctx context.Context, config config.Config) error {
 			if err != nil {
 				log.Errorf("[cleanup] Failed to delete group %s. Error: %s", *group.GroupName, err)
 			} else {
-				log.Debugf("Group %s has been successefully deleted from %s userpool", *group.GroupName, config.CognitoUserPoolId)
+				log.Debugf("Group %s has been successefully deleted from %s userpool", *group.GroupName, config.CognitoUserPoolID)
 			}
 		}
 
 		time.Sleep(3 * time.Second)
-		log.Infof("User pool %s has been successfully cleaned up", config.CognitoUserPoolId)
+		log.Infof("User pool %s has been successfully cleaned up", config.CognitoUserPoolID)
 	}
 
 	if config.RestoreUsers.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/users.json", config.BackupDirPath))
 		if err != nil {
-			return fmt.Errorf("Failed to get users backup data from S3. Error: %s", err)
-		} else {
+			//nolint:stylecheck
+			return fmt.Errorf("Failed to get users backup data from S3. Error: %w", err)
+		} else { //nolint:revive
 			log.Debugf("%s/users.json data has been received successfully from S3", config.BackupDirPath)
 		}
 
 		var users cognitoidentityprovider.ListUsersOutput
 		err = json.Unmarshal(data, &users)
 		if err != nil {
-			return fmt.Errorf("Failed to unmarshal users backup data. Error: %s", err)
-		} else {
+			//nolint:stylecheck
+			return fmt.Errorf("Failed to unmarshal users backup data. Error: %w", err)
+		} else { //nolint:revive
 			log.Debug("users data has been unmarshalled successfully")
 		}
 
@@ -123,13 +128,14 @@ func Execute(ctx context.Context, config config.Config) error {
 
 			_, err := client.CognitoClient.AdminCreateUser(
 				ctx, &cognitoidentityprovider.AdminCreateUserInput{
-					UserPoolId:     aws.String(config.CognitoUserPoolId),
+					UserPoolId:     aws.String(config.CognitoUserPoolID),
 					Username:       userName,
 					UserAttributes: userAttributes,
 				},
 			)
 			if err != nil {
-				return fmt.Errorf("Failed to restore user %s. Error: %s", *user.Username, err)
+				//nolint:stylecheck
+				return fmt.Errorf("Failed to restore user %s. Error: %w", *user.Username, err)
 			}
 		}
 	}
@@ -137,29 +143,31 @@ func Execute(ctx context.Context, config config.Config) error {
 	if config.RestoreGroups.Bool {
 		data, err := getDataFromS3(ctx, client, config.S3BucketName, fmt.Sprintf("%s/groups.json", config.BackupDirPath))
 		if err != nil {
-			return fmt.Errorf("Failed to get groups backup data from S3. Error: %s", err)
-		} else {
+			//nolint:stylecheck
+			return fmt.Errorf("Failed to get groups backup data from S3. Error: %w", err)
+		} else { //nolint:revive
 			log.Debugf("%s/groups.json data has been received successfully from S3", config.BackupDirPath)
 		}
 
 		var groups cognitoidentityprovider.ListGroupsOutput
 		err = json.Unmarshal(data, &groups)
 		if err != nil {
-			return fmt.Errorf("Failed to unmarshal groups backup data. Error: %s", err)
-
-		} else {
+			//nolint:stylecheck
+			return fmt.Errorf("Failed to unmarshal groups backup data. Error: %w", err)
+		} else { //nolint:revive
 			log.Debug("groups data has been unmarshalled successfully")
 		}
 
 		for _, group := range groups.Groups {
 			_, err := client.CognitoClient.CreateGroup(
 				ctx, &cognitoidentityprovider.CreateGroupInput{
-					UserPoolId: aws.String(config.CognitoUserPoolId),
+					UserPoolId: aws.String(config.CognitoUserPoolID),
 					GroupName:  group.GroupName,
 				},
 			)
 			if err != nil {
-				return fmt.Errorf("Failed to restore group %s. Error: %s", *group.GroupName, err)
+				//nolint:stylecheck
+				return fmt.Errorf("Failed to restore group %s. Error: %w", *group.GroupName, err)
 			}
 		}
 	}

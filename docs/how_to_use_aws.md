@@ -13,7 +13,7 @@
 {
   "awsRegion": "<AWS_REGION | optional>",
   
-  "cognitoUserPoolID": "<COGNITO_USER_POOL_ID>",
+  "cognitoUserPoolId": "<COGNITO_USER_POOL_ID>",
   "cognitoRegion": "<COGNITO_POOL_AWS_REGION | AWS_REGION will be used if this var is omitted>",
   
   "s3BucketName": "<S3_BUCKET_NAME>",
@@ -32,7 +32,7 @@
 ```json
 {
   "awsRegion": "us-west-2",
-  "cognitoUserPoolID": "ap-southeast-2_EPyUfpQq7",
+  "cognitoUserPoolId": "ap-southeast-2_EPyUfpQq7",
   "s3BucketName": "mybuckettest",
   "backupDirPath": "2022-08-26T20:16:37Z/",
   "restoreUsers": true,
