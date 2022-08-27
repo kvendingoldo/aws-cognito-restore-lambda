@@ -36,7 +36,7 @@ func getDataFromS3(ctx context.Context, client *cloud.Client, bucketName, keyNam
 }
 
 func Execute(ctx context.Context, config config.Config) error {
-	client, err := cloud.New(context.TODO(), config.CognitoRegion, config.S3BucketRegion)
+	client, err := cloud.New(ctx, config.CognitoRegion, config.S3BucketRegion)
 	if err != nil {
 		return fmt.Errorf("Could not create AWS client. Error: %s", err)
 	}
